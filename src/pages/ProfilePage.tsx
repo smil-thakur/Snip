@@ -9,6 +9,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Paper,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -29,6 +31,7 @@ export function ProfilePage() {
 
   const [user, setUser] = useState<UserProfile | null>(null)
   const [snips, setSnips] = useState<Snip[]>([])
+  const [snipsLoading, setSnipsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
@@ -37,11 +40,13 @@ export function ProfilePage() {
   const load = useCallback(async () => {
     if (!username) return
     setNotFound(false)
+    setSnipsLoading(true)
     let resolvedUser: UserProfile
     try {
       resolvedUser = await getByUsername(username)
     } catch {
       setNotFound(true)
+      setSnipsLoading(false)
       return
     }
     setUser(resolvedUser)
@@ -51,6 +56,8 @@ export function ProfilePage() {
       setSnips(snipPage.snips ?? [])
     } catch {
       setSnips([])
+    } finally {
+      setSnipsLoading(false)
     }
   }, [username])
 
@@ -131,7 +138,9 @@ export function ProfilePage() {
         </Box>
       </Stack>
 
-      {snips.length === 0 ? (
+      {snipsLoading ? (
+        <SnipCardSkeletonList />
+      ) : snips.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
           No snips yet.
         </Typography>
@@ -159,6 +168,28 @@ export function ProfilePage() {
         />
       )}
     </Box>
+  )
+}
+
+/** Placeholder shapes matching SnipCard's rough layout, shown while a
+ * profile's snips are still loading — an empty snips array during that
+ * window isn't yet known to mean "no snips," so it shouldn't render as
+ * the empty state. */
+function SnipCardSkeletonList() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Skeleton variant="circular" width={28} height={28} />
+            <Skeleton variant="text" width={100} />
+            <Skeleton variant="text" width={70} />
+          </Stack>
+          <Skeleton variant="text" sx={{ mt: 1 }} />
+          <Skeleton variant="text" width="80%" />
+        </Paper>
+      ))}
+    </>
   )
 }
 

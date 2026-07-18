@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DOMPurify from 'dompurify'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { Avatar, Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import IosShareRoundedIcon from '@mui/icons-material/IosShareRounded'
@@ -11,17 +10,11 @@ import { LikeButton } from '../social/LikeButton'
 import { ShareDialog } from './ShareDialog'
 import { EditSnipDialog } from './EditSnipDialog'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { MediaCarousel } from '../common/MediaCarousel'
 import { useAuth } from '../../context/AuthContext'
 import { deleteSnip } from '../../api/snipApi'
+import { sanitizeSnipCaption, extractSnipMediaList, stripYoutubeLinksFromCaption } from '../../utils/sanitizeSnipHtml'
 import type { Snip } from '../../types'
-
-// Only the tags/attributes Quill's restricted toolbar can produce make it
-// through — anything else (script, style, event handlers, etc.) is dropped
-// regardless of what a client claims to have sent.
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'blockquote', 'ol', 'ul', 'li', 'a'],
-  ALLOWED_ATTR: ['href', 'target', 'rel'],
-}
 
 interface SnipCardProps {
   snip: Snip
@@ -38,7 +31,11 @@ export function SnipCard({ snip, onDeleted, onUpdated }: SnipCardProps) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
-  const safeHtml = useMemo(() => DOMPurify.sanitize(snip.contentHtml, SANITIZE_CONFIG), [snip.contentHtml])
+  const media = useMemo(() => extractSnipMediaList(snip.contentHtml), [snip.contentHtml])
+  const caption = useMemo(() => {
+    const raw = sanitizeSnipCaption(snip.contentHtml)
+    return media.some((m) => m.type === 'youtube') ? stripYoutubeLinksFromCaption(raw) : raw
+  }, [snip.contentHtml, media])
   const isOwner = profile?.uid === snip.authorUid
 
   const handleDeleteConfirmed = async () => {
@@ -54,22 +51,25 @@ export function SnipCard({ snip, onDeleted, onUpdated }: SnipCardProps) {
       onClick={() => navigate(`/s/${snip.id}`)}
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.25 }}>
-        <Avatar
-          src={snip.authorPhotoUrl}
-          sx={{ width: 28, height: 28, cursor: 'pointer', fontSize: 14, flexShrink: 0 }}
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: 'center', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
           onClick={(e) => {
             e.stopPropagation()
             navigate(`/${snip.authorUsername}`)
           }}
         >
-          {snip.authorName?.[0]?.toUpperCase()}
-        </Avatar>
-        <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700 }}>
-          {snip.authorName}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" noWrap>
-          @{snip.authorUsername}
-        </Typography>
+          <Avatar src={snip.authorPhotoUrl} sx={{ width: 28, height: 28, fontSize: 14, flexShrink: 0 }}>
+            {snip.authorName?.[0]?.toUpperCase()}
+          </Avatar>
+          <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700 }}>
+            {snip.authorName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" noWrap>
+            @{snip.authorUsername}
+          </Typography>
+        </Stack>
         <Typography variant="body2" color="text.secondary">
           ·
         </Typography>
@@ -85,18 +85,36 @@ export function SnipCard({ snip, onDeleted, onUpdated }: SnipCardProps) {
         )}
       </Stack>
 
-      <Box
-        sx={{
-          mt: 1,
-          fontSize: 15,
-          lineHeight: 1.5,
-          '& p': { m: 0, mb: 0.75 },
-          '& p:last-child': { mb: 0 },
-          '& a': { color: 'primary.main' },
-          wordBreak: 'break-word',
-        }}
-        dangerouslySetInnerHTML={{ __html: safeHtml }}
-      />
+      {caption && (
+        <Box
+          sx={{
+            mt: 1,
+            fontSize: 15,
+            lineHeight: 1.5,
+            '& p': { m: 0, mb: 0.75 },
+            '& p:last-child': { mb: 0 },
+            '& a': { color: 'primary.main' },
+            // break-word (not break-all) so only a single unbreakable token
+            // (e.g. a long URL) wraps mid-word — normal words always wrap
+            // as whole words first.
+            wordBreak: 'normal',
+            overflowWrap: 'break-word',
+          }}
+          dangerouslySetInnerHTML={{ __html: caption }}
+        />
+      )}
+
+      {media.length > 0 && (
+        <Box sx={{ mt: 1 }} onClick={(e) => e.stopPropagation()}>
+          <MediaCarousel
+            items={media}
+            videoMode="controls"
+            aspectRatio="16/9"
+            objectFit="cover"
+            sx={{ borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover' }}
+          />
+        </Box>
+      )}
 
       {(snip.tags ?? []).length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ mt: 0.75, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>

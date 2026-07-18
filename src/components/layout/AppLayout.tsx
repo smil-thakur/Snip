@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import ExploreRoundedIcon from '@mui/icons-material/ExploreRounded'
+import PlayCircleOutlineRoundedIcon from '@mui/icons-material/PlayCircleOutlineRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded'
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded'
@@ -55,6 +56,11 @@ export function AppLayout() {
           <Tooltip title="Discover">
             <IconButton onClick={() => navigate('/discover')} aria-label="Discover" sx={{ p: { xs: 0.75, sm: 1 } }}>
               <ExploreRoundedIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Scroll">
+            <IconButton onClick={() => navigate('/scroll')} aria-label="Scroll" sx={{ p: { xs: 0.75, sm: 1 } }}>
+              <PlayCircleOutlineRoundedIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Profile">

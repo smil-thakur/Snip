@@ -8,10 +8,19 @@ interface LikeButtonProps {
   snipId: string
   initialLiked: boolean
   initialCount: number
+  /** 'row' (default) for the inline SnipCard layout; 'column' stacks the
+   * icon above the count, for the Instagram-style vertical action rail in
+   * ScrollPage. */
+  direction?: 'row' | 'column'
+  /** Larger touch target + icon for the full-screen reel view. */
+  size?: 'small' | 'large'
+  /** Icon/count color — defaults to theme colors, but the reel view sits
+   * over media and needs to force white regardless of light/dark mode. */
+  color?: string
 }
 
 /** Optimistic like/unlike toggle. Reverts on request failure. */
-export function LikeButton({ snipId, initialLiked, initialCount }: LikeButtonProps) {
+export function LikeButton({ snipId, initialLiked, initialCount, direction = 'row', size = 'small', color }: LikeButtonProps) {
   const [liked, setLiked] = useState(initialLiked)
   const [count, setCount] = useState(initialCount)
   const [busy, setBusy] = useState(false)
@@ -36,12 +45,19 @@ export function LikeButton({ snipId, initialLiked, initialCount }: LikeButtonPro
     }
   }
 
+  const iconFontSize = size === 'large' ? 'inherit' : 'small'
+
   return (
-    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-      <IconButton size="small" onClick={toggle} aria-label={liked ? 'Unlike' : 'Like'} color={liked ? 'error' : 'default'}>
-        {liked ? <FavoriteRoundedIcon fontSize="small" /> : <FavoriteBorderRoundedIcon fontSize="small" />}
+    <Stack direction={direction} spacing={direction === 'column' ? 0 : 0.5} sx={{ alignItems: 'center' }}>
+      <IconButton
+        size={size}
+        onClick={toggle}
+        aria-label={liked ? 'Unlike' : 'Like'}
+        sx={{ color: color ?? (liked ? 'error.main' : undefined), fontSize: size === 'large' ? 32 : undefined }}
+      >
+        {liked ? <FavoriteRoundedIcon fontSize={iconFontSize} /> : <FavoriteBorderRoundedIcon fontSize={iconFontSize} />}
       </IconButton>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{ color: color ?? 'text.secondary', fontWeight: direction === 'column' ? 600 : 400 }}>
         {count}
       </Typography>
     </Stack>

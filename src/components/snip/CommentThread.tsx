@@ -67,7 +67,7 @@ export function CommentThread({ comment, snipId, depth, onChanged }: CommentThre
               · {formatDistanceToNowStrict(new Date(comment.createdAt))} ago
             </Typography>
           </Stack>
-          <Typography variant="body2" sx={{ mt: 0.25, wordBreak: 'break-word' }}>
+          <Typography variant="body2" sx={{ mt: 0.25, wordBreak: 'normal', overflowWrap: 'break-word' }}>
             {comment.text}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ mt: 0.25 }}>

@@ -9,6 +9,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { FollowersPage } from './pages/FollowersPage'
 import { FollowingPage } from './pages/FollowingPage'
 import { SnipDetailPage } from './pages/SnipDetailPage'
+import { ScrollPage } from './pages/ScrollPage'
 
 function App() {
   return (
@@ -20,6 +21,17 @@ function App() {
         element={
           <ProtectedRoute>
             <OnboardingUsernamePage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Full-bleed, outside AppLayout's AppBar/Container chrome — the
+          Reels-style vertical scroll needs the whole viewport. */}
+      <Route
+        path="/scroll"
+        element={
+          <ProtectedRoute>
+            <ScrollPage />
           </ProtectedRoute>
         }
       />

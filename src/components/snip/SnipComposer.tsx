@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
-import { Autocomplete, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, LinearProgress, Paper, Stack, TextField, Typography } from '@mui/material'
 import { createSnip } from '../../api/snipApi'
+import { useAuth } from '../../context/AuthContext'
 import { RECOMMENDED_TAGS } from '../../constants/tags'
-import { QUILL_TOOLBAR, quillWrapperSx } from './quillConfig'
+import { QUILL_TOOLBAR, createMediaHandlers, quillWrapperSx } from './quillConfig'
 import type { Snip } from '../../types'
 
 const MAX_LENGTH = 1000
@@ -18,20 +19,42 @@ interface SnipComposerProps {
  * (for possible future re-editing) alongside derived HTML/plain-text used
  * for rendering and length limits. */
 export function SnipComposer({ onPosted }: SnipComposerProps) {
+  const { firebaseUser } = useAuth()
   const [html, setHtml] = useState('')
   const [plainLength, setPlainLength] = useState(0)
+  const [hasMedia, setHasMedia] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [posting, setPosting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const quillRef = useRef<ReactQuill>(null)
 
-  const isEmpty = plainLength === 0
+  // A snip with only an attached image/video and no text is still postable
+  // (Twitter/X-style) — plain text length alone isn't the right emptiness
+  // check once media embeds are possible.
+  const isEmpty = plainLength === 0 && !hasMedia
   const overLimit = plainLength > MAX_LENGTH
+
+  // Keyed on the uid string (not the firebaseUser object) — Firebase Auth
+  // can re-emit a new User object for the same logical session (e.g. right
+  // after updateProfile() during signup), and memoizing on object identity
+  // there caused ReactQuill to reinitialize mid-render and spiral into a
+  // setState loop.
+  const uid = firebaseUser?.uid
+  const mediaHandlers = useMemo(
+    () => (uid ? createMediaHandlers(quillRef, { uid, setUploading, setError }) : undefined),
+    [uid],
+  )
+  const modules = useMemo(
+    () => ({ toolbar: { container: QUILL_TOOLBAR, handlers: mediaHandlers } }),
+    [mediaHandlers],
+  )
 
   const handleChange = (content: string) => {
     setHtml(content)
     const text = quillRef.current?.getEditor().getText() ?? ''
     setPlainLength(text.trim().length)
+    setHasMedia(/<(img|video)\b/i.test(content))
   }
 
   const handlePost = async () => {
@@ -51,6 +74,7 @@ export function SnipComposer({ onPosted }: SnipComposerProps) {
       editor.setText('')
       setHtml('')
       setPlainLength(0)
+      setHasMedia(false)
       setTags([])
     } catch {
       setError('Could not post your snip. Please try again.')
@@ -61,13 +85,22 @@ export function SnipComposer({ onPosted }: SnipComposerProps) {
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      {uploading && <LinearProgress sx={{ mb: 1 }} />}
       <Box sx={quillWrapperSx}>
         <ReactQuill
           ref={quillRef}
           theme="snow"
-          value={html}
+          // Uncontrolled on purpose: react-quill-new's controlled mode
+          // (`value=`) does a byte-for-byte string comparison between the
+          // prop and the live DOM's serialized HTML on every render, and
+          // any round-trip quirk (e.g. space vs &nbsp; normalization
+          // timing) forces a re-sync that re-fires the change event —
+          // a real infinite setState loop under the right timing. `html`
+          // state is still tracked via onChange for the char count/submit
+          // payload; it's just never fed back into the editor.
+          defaultValue={html}
           onChange={handleChange}
-          modules={{ toolbar: QUILL_TOOLBAR }}
+          modules={modules}
           placeholder="Share something you just learned…"
         />
       </Box>

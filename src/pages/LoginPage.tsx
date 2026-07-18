@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -25,7 +25,6 @@ type Mode = 'signin' | 'signup'
  * and syncs a backend profile automatically. */
 export function LoginPage() {
   const { firebaseUser, loading } = useAuth()
-  const navigate = useNavigate()
 
   const [mode, setMode] = useState<Mode>('signin')
   const [name, setName] = useState('')
@@ -38,12 +37,20 @@ export function LoginPage() {
     return <Navigate to="/" replace />
   }
 
+  // Neither handler navigates explicitly on success — the early-return
+  // above already redirects reactively as soon as firebaseUser becomes
+  // truthy. Navigating imperatively here too was actively harmful:
+  // signUpWithEmail's promise doesn't resolve until updateProfile()
+  // finishes, which can lag well behind the auth-state-change the app
+  // already reacted to (and already navigated away from LoginPage for).
+  // When that stale promise finally resolved, this call would fire
+  // navigate('/', { replace: true }) unconditionally and yank the user
+  // back to '/' from wherever they'd since gone.
   const handleGoogle = async () => {
     setError(null)
     setSubmitting(true)
     try {
       await signInWithGoogle()
-      navigate('/', { replace: true })
     } catch (err) {
       setError(isFirebaseAuthError(err) ? describeAuthError(err) : 'Could not sign in with Google.')
     } finally {
@@ -61,7 +68,6 @@ export function LoginPage() {
       } else {
         await signInWithEmail(email, password)
       }
-      navigate('/', { replace: true })
     } catch (err) {
       setError(isFirebaseAuthError(err) ? describeAuthError(err) : 'Something went wrong.')
     } finally {
